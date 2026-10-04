@@ -1,0 +1,26 @@
+[project]
+name = "basket-index-tracker"
+version = "0.1.0"
+description = "Private custom stock basket and index tracker"
+readme = "README.md"
+authors = [
+    { name = "Lily Gu", email = "ellengyy@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "pandas>=2.3,<4",
+    "supabase>=2.15,<3",
+    "yfinance>=1.7.0",
+]
+
+[project.scripts]
+basket-index-tracker = "basket_index_tracker.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4,<10",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.13,<0.13.0"]
+build-backend = "uv_build"

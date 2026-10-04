@@ -14,7 +14,6 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
 lib64/
 parts/
 sdist/
@@ -218,3 +217,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Next.js / Node
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+.env.local
+.env.*.local
