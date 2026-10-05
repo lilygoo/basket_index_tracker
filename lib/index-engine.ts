@@ -66,12 +66,21 @@ export function chartAxis(values: number[]) {
   const min = Math.min(100, ...values);
   const max = Math.max(100, ...values);
   const span = max - min;
-  const step = span <= 10 ? 1 : span <= 50 ? 5 : 10;
-  let lo = Math.floor(min / step) * step;
-  let hi = Math.ceil(max / step) * step;
+  const targetIntervals = 11;
+  const roughStep = span > 0 ? span / targetIntervals : 1;
+  const magnitude = 10 ** Math.floor(Math.log10(roughStep));
+  const fraction = roughStep / magnitude;
+  const niceFraction = fraction <= 1 ? 1 : fraction <= 2 ? 2 : fraction <= 2.5 ? 2.5 : fraction <= 5 ? 5 : 10;
+  const step = niceFraction * magnitude;
+  const clean = (value: number) => Number(value.toPrecision(12));
+  let lo = clean(Math.floor(min / step) * step);
+  let hi = clean(Math.ceil(max / step) * step);
   if (lo === hi) { lo -= step; hi += step; }
   const ticks: number[] = [];
-  for (let value = lo; value <= hi + step / 2; value += step) ticks.push(value);
+  const intervals = Math.round((hi - lo) / step);
+  for (let index = 0; index <= intervals; index += 1) ticks.push(clean(lo + index * step));
+  if (!ticks.includes(100)) ticks.push(100);
+  ticks.sort((a, b) => a - b);
   return { lo, hi, step, ticks };
 }
 

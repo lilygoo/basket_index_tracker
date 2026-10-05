@@ -69,13 +69,14 @@ describe("index engine", () => {
     assert.equal(sampleSeries(calculateIndex(basket, rows), "weekly").length, 3);
   });
 
-  it("always includes 100 and uses only 1, 5, or 10 point ticks", () => {
-    for (const values of [[98, 104], [82, 119], [31, 171]]) {
+  it("always includes 100 and keeps the grid near twelve lines", () => {
+    for (const values of [[98, 104], [82, 119], [31, 171], [100, 1128]]) {
       const axis = chartAxis(values);
       assert.ok(axis.ticks.includes(100));
-      assert.ok([1, 5, 10].includes(axis.step));
+      assert.ok(axis.ticks.length >= 6 && axis.ticks.length <= 13);
       assert.ok(axis.lo <= Math.min(...values));
       assert.ok(axis.hi >= Math.max(...values));
     }
+    assert.equal(chartAxis([100, 1128]).step, 100);
   });
 });
