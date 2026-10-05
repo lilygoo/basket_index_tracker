@@ -28,6 +28,7 @@ Then open `http://localhost:3000`. Run `npm test`, `npm run typecheck`, and `npm
 1. Review and apply the migrations in order in the existing Supabase project:
    - `202610030001_basket_index_tracker.sql` creates the initial basket model and daily market-cap columns.
    - `202610040002_basket_audit_and_market_data.sql` adds controlled creation/deletion, unique names, immutable events, current universe snapshots, and frozen daily market-cap updates. It also removes the three confirmed empty accidental `New Basket` rows.
+   - `202610040003_queue_unsupported_basket_tickers.sql` atomically queues unsupported basket constituents through the shared Risk Lens support RPC.
 2. Copy the server-only Supabase values into an ignored `.env.local`; never expose the secret with a `NEXT_PUBLIC_` prefix.
 3. Configure two independent layers of access control:
    - Enable Vercel Authentication for every URL that serves the app. On Vercel Hobby, Standard Protection does not protect a production custom domain, so use a protected deployment URL or a plan/scope that protects production.
@@ -41,6 +42,8 @@ BASKET_SESSION_SECRET=...
 ```
 
 The browser never talks to Supabase. Authenticated Next.js handlers use the service-role key, and the database mutation functions reject non-service-role callers.
+
+Ticker support is determined by `security_universe`, not by the presence of an old price row. Creating a basket or adding a constituent calls the shared `request_shared_ticker_support` RPC inside the same database transaction whenever the ticker is not both active and supported. Requested tickers stay Pending until the shared refresh promotes them.
 
 ## Market-cap enrichment
 

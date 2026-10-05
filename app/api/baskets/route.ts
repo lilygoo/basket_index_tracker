@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAppSession } from "@/lib/auth";
+import { unsupportedTickers, type SecurityUniverseStatus } from "@/lib/security-universe";
 import { createAdminClient } from "@/lib/supabase";
 
 export async function POST(request: Request) {
@@ -15,25 +16,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Add at least one valid ticker." }, { status: 400 });
   }
   const supabase = createAdminClient();
-  const { data: firstPrice, error: priceError } = await supabase.from("daily_prices").select("price_date").order("price_date").limit(1).maybeSingle();
+  const [{ data: firstPrice, error: priceError }, { data: universeRows, error: universeError }] = await Promise.all([
+    supabase.from("daily_prices").select("price_date").order("price_date").limit(1).maybeSingle(),
+    supabase.from("security_universe").select("ticker,active,support_status").in("ticker", tickers),
+  ]);
   if (priceError) return NextResponse.json({ error: priceError.message }, { status: 400 });
+  if (universeError) return NextResponse.json({ error: universeError.message }, { status: 400 });
+  const pending = unsupportedTickers(tickers, (universeRows ?? []) as SecurityUniverseStatus[]);
   const inceptionDate = firstPrice?.price_date ?? new Date().toISOString().slice(0, 10);
   const { data, error } = await supabase.rpc("create_basket_with_constituents", {
     p_name: name, p_weighting_method: weighting, p_tickers: tickers, p_inception_date: inceptionDate,
   });
   if (error) return NextResponse.json({ error: error.code === "23505" ? "A basket with that name already exists." : error.message }, { status: error.code === "23505" ? 409 : 400 });
 
-  const priceChecks = await Promise.all(tickers.map(async (ticker) => ({
-    ticker,
-    result: await supabase.from("daily_prices").select("ticker").eq("ticker", ticker).limit(1).maybeSingle(),
-  })));
-  const pricedTickers = new Set(priceChecks.filter(({ result }) => Boolean(result.data)).map(({ ticker }) => ticker));
-  const pending = tickers.filter((ticker) => !pricedTickers.has(ticker));
-  const supportWarnings: string[] = [];
-  for (const ticker of pending) {
-    const { error: requestError } = await supabase.rpc("request_shared_ticker_support", { p_ticker: ticker });
-    if (requestError && !requestError.message.includes("already supported")) supportWarnings.push(`${ticker}: ${requestError.message}`);
-  }
   const created = Array.isArray(data) ? data[0] : data;
-  return NextResponse.json({ id: created?.id, pending, supportWarnings }, { status: 201 });
+  return NextResponse.json({ id: created?.id, pending }, { status: 201 });
 }

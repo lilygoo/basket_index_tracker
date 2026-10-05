@@ -1,5 +1,6 @@
 import "server-only";
 import { calculateIndex } from "@/lib/index-engine";
+import { supportedTickerSet, type SecurityUniverseStatus } from "@/lib/security-universe";
 import { createAdminClient, isSupabaseConfigured } from "@/lib/supabase";
 import { demoWorkspace } from "@/lib/demo";
 import type { Basket, PriceRow, WorkspaceData, WeightingMethod } from "@/lib/types";
@@ -34,7 +35,14 @@ export async function loadWorkspace(): Promise<WorkspaceData> {
   if (memberError) throw memberError;
   const dbMembers = (memberRows ?? []) as DbMember[];
   const tickers = [...new Set(dbMembers.map((row) => row.ticker))];
-  const dbPrices = await loadPrices(tickers);
+  const [{ data: universeRows, error: universeError }, dbPrices] = await Promise.all([
+    tickers.length
+      ? supabase.from("security_universe").select("ticker,active,support_status").in("ticker", tickers)
+      : Promise.resolve({ data: [], error: null }),
+    loadPrices(tickers),
+  ]);
+  if (universeError) throw universeError;
+  const supportedTickers = supportedTickerSet((universeRows ?? []) as SecurityUniverseStatus[]);
   const prices: PriceRow[] = dbPrices.map((row) => ({
     ticker: row.ticker, date: row.price_date, rawClose: Number(row.raw_close), adjustedClose: Number(row.adjusted_close),
     marketCap: row.market_cap === null ? null : Number(row.market_cap),
@@ -46,7 +54,7 @@ export async function loadWorkspace(): Promise<WorkspaceData> {
   function mapMember(member: DbMember, weightingMethod: WeightingMethod) {
       const hasPrice = priceTickers.has(member.ticker);
       const hasCap = capTickers.has(member.ticker);
-      const pendingReason = !hasPrice ? "price" as const : weightingMethod === "market_cap" && !hasCap ? "market_cap" as const : null;
+      const pendingReason = !supportedTickers.has(member.ticker) ? "support" as const : !hasPrice ? "price" as const : weightingMethod === "market_cap" && !hasCap ? "market_cap" as const : null;
       return { id: member.id, ticker: member.ticker, activeFrom: member.active_from, activeTo: member.active_to, status: pendingReason ? "pending" as const : "ready" as const, pendingReason };
   }
   const dbBaskets = (basketRows ?? []) as DbBasket[];
@@ -59,7 +67,7 @@ export async function loadWorkspace(): Promise<WorkspaceData> {
   const series = Object.fromEntries(baskets.map((basket) => {
     const historicalBasket = { ...basket, constituents: dbMembers.filter((member) => member.basket_id === basket.id).map((member) => mapMember(member, basket.weightingMethod)) };
     const activeTickers = historicalBasket.constituents.filter((member) => !member.activeTo).map((member) => member.ticker);
-    const marketCapMissing = activeTickers.filter((ticker) => priceTickers.has(ticker) && !capTickers.has(ticker));
+    const marketCapMissing = activeTickers.filter((ticker) => supportedTickers.has(ticker) && priceTickers.has(ticker) && !capTickers.has(ticker));
     return [basket.id, {
       equal: calculateIndex(historicalBasket, prices, "equal"),
       marketCap: calculateIndex(historicalBasket, prices, "market_cap"),

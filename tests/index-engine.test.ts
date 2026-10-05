@@ -58,6 +58,13 @@ describe("index engine", () => {
     assert.equal(ratioSeries(a, b, "2026-01-05").find((point) => point.date === "2026-01-05")?.value, 100);
   });
 
+  it("rebases a single index on any selected observation", () => {
+    const series = calculateIndex(basket, rows);
+    const rebased = rebaseSeries(series, "2026-01-05");
+    assert.equal(rebased.find((point) => point.date === "2026-01-05")?.value, 100);
+    assert.ok(Math.abs((rebased.at(-1)?.value ?? 0) - 100) < 0.00001);
+  });
+
   it("samples the last observation in each week", () => {
     assert.equal(sampleSeries(calculateIndex(basket, rows), "weekly").length, 3);
   });

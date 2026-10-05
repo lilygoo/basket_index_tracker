@@ -42,7 +42,7 @@ function InteractiveChart({ datasets, rebaseDate, selectableDates, onSelectDate 
   }
 
   return <div className="chart-wrap">
-    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={onSelectDate ? "Index comparison chart. Click or drag to choose the vertical rebase date." : "Basket index history chart"}
+    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={onSelectDate ? "Index history chart. Click or drag to choose the vertical rebase date." : "Basket index history chart"}
       tabIndex={onSelectDate ? 0 : undefined} className={onSelectDate ? "chart selectable" : "chart"}
       onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); pick(event); }}
       onPointerMove={(event) => { if (event.currentTarget.hasPointerCapture(event.pointerId)) pick(event); }}
@@ -114,7 +114,7 @@ function BasketCard({ basket, selected, editing, persistent, onSelect, onEdit, o
       </> : <><h3>{basket.name}</h3><span className="weight-label">{basket.weightingMethod === "equal" ? "Equal weight" : "Market-cap"}</span></>}
       <button type="button" className="edit-card" onClick={(event) => { event.stopPropagation(); onEdit(); }}>{editing ? <Check size={13}/> : <Pencil size={12}/>} {editing ? "Done" : "Edit"}</button>
     </div>
-    <div className="ticker-list">{basket.constituents.map((member) => <span className={`ticker-chip ${member.status}`} key={member.id} title={member.pendingReason === "market_cap" ? "Waiting for market-cap history" : member.pendingReason === "price" ? "Waiting for price history" : "Ready"}>
+    <div className="ticker-list">{basket.constituents.map((member) => <span className={`ticker-chip ${member.status}`} key={member.id} title={member.pendingReason === "support" ? "Waiting for shared-universe refresh" : member.pendingReason === "market_cap" ? "Waiting for market-cap history" : member.pendingReason === "price" ? "Waiting for price history" : "Ready"}>
       {member.ticker}{member.status === "pending" && <small>Pending</small>}{editing && <button type="button" aria-label={`Remove ${member.ticker}`} onClick={(event) => { event.stopPropagation(); void remove(member.id); }}><X size={12}/></button>}
     </span>)}</div>
     {editing && <form className="add-ticker" onSubmit={add} onClick={(event) => event.stopPropagation()}><input aria-label={`Add ticker to ${basket.name}`} value={ticker} onChange={(event) => setTicker(event.target.value.toUpperCase())} placeholder="Add ticker"/><button>Add</button></form>}
@@ -185,19 +185,23 @@ export function BasketWorkspace({ initialData }: { initialData: WorkspaceData })
   const secondarySeries = secondary ? series[secondary.id] : undefined;
   const rawA = sampleSeries(primary?.weightingMethod === "market_cap" ? primarySeries?.marketCap ?? [] : primarySeries?.equal ?? [], frequency);
   const rawB = sampleSeries(secondary?.weightingMethod === "market_cap" ? secondarySeries?.marketCap ?? [] : secondarySeries?.equal ?? [], frequency);
-  const dates = useMemo(() => comparison && primary && secondary ? commonDates(rawA, rawB) : [], [comparison, primary, secondary, rawA, rawB]);
-  useEffect(() => { if (comparison && view === "overlay" && dates.length && (!rebaseDate || !dates.includes(rebaseDate))) setRebaseDate(dates[0]); }, [comparison, view, primaryId, secondaryId, frequency, dates, rebaseDate]);
+  const comparisonDates = useMemo(() => comparison && primary && secondary ? commonDates(rawA, rawB) : [], [comparison, primary, secondary, rawA, rawB]);
+  const rebaseDates = useMemo(() => !comparison ? rawA.map((point) => point.date) : view === "overlay" ? comparisonDates : [], [comparison, view, rawA, comparisonDates]);
+  useEffect(() => { if (rebaseDates.length && (!rebaseDate || !rebaseDates.includes(rebaseDate))) setRebaseDate(rebaseDates[0]); }, [primaryId, secondaryId, frequency, rebaseDates, rebaseDate]);
 
   const chart = useMemo(() => {
     if (!primary) return [];
-    if (!comparison || !secondary) return [{ name: primary.name, points: rawA, color: COLORS[0] }];
+    if (!comparison || !secondary) {
+      const date = rebaseDate ?? rebaseDates[0];
+      return [{ name: primary.name, points: date ? rebaseSeries(rawA, date) : rawA, color: COLORS[0] }];
+    }
     if (view === "ratio") return [{ name: `${primary.name} / ${secondary.name}`, points: ratioSeries(rawA, rawB), color: COLORS[0] }];
-    const common = new Set(dates); const date = rebaseDate ?? dates[0];
+    const common = new Set(comparisonDates); const date = rebaseDate ?? comparisonDates[0];
     return [
       { name: primary.name, points: rebaseSeries(rawA.filter((point) => common.has(point.date)), date), color: COLORS[0] },
       { name: secondary.name, points: rebaseSeries(rawB.filter((point) => common.has(point.date)), date), color: COLORS[1] },
     ];
-  }, [primary, secondary, comparison, view, rawA, rawB, dates, rebaseDate]);
+  }, [primary, secondary, comparison, view, rawA, rawB, comparisonDates, rebaseDates, rebaseDate]);
 
   function localChange(next: Basket) {
     setBaskets((current) => current.map((basket) => basket.id === next.id ? next : basket));
@@ -236,7 +240,7 @@ export function BasketWorkspace({ initialData }: { initialData: WorkspaceData })
   const pending = primary?.constituents.filter((member) => member.status === "pending") ?? [];
   const capMissing = primarySeries?.marketCapMissing ?? [];
   const first = chart[0]?.points[0], last = chart[0]?.points.at(-1);
-  const usesSelectedRebase = comparison && view === "overlay";
+  const usesSelectedRebase = rebaseDates.length > 0;
   const change = usesSelectedRebase && last ? last.value - 100 : first && last ? (last.value / first.value - 1) * 100 : null;
 
   return <main className="app-shell">
@@ -258,11 +262,11 @@ export function BasketWorkspace({ initialData }: { initialData: WorkspaceData })
           {comparison && <div className="compare-controls"><label><span>Second index</span><select aria-label="Second index" value={secondary?.id} onChange={(event) => setSecondaryId(event.target.value)}>{baskets.filter((basket) => basket.id !== primary?.id).map((basket) => <option key={basket.id} value={basket.id}>{basket.name}</option>)}</select></label><label><span>View</span><select value={view} onChange={(event) => setView(event.target.value as ComparisonView)}><option value="overlay">Both indices</option><option value="ratio">Ratio</option></select></label></div>}
         </div>
         <div className="chart-panel">
-          <div className="chart-head"><div><h3>{comparison && secondary ? view === "ratio" ? `${primary?.name} / ${secondary.name}` : `${primary?.name} vs ${secondary.name}` : primary?.name}</h3><p>{comparison && view === "overlay" ? "Both histories rebased to 100 at the vertical marker" : view === "ratio" && comparison ? "Relative performance ratio, rebased to 100" : `Historical ${primary?.weightingMethod === "market_cap" ? "market-cap" : "equal-weight"} index, base level 100`}</p></div><div className="latest-value"><strong>{last?.value.toFixed(2) ?? "—"}</strong><span>{change === null ? "No history" : `${change >= 0 ? "+" : ""}${change.toFixed(1)}% ${usesSelectedRebase ? "since rebase" : "over displayed period"}`}</span></div></div>
-          {comparison && view === "overlay" && dates.length > 0 && <div className="rebase-control"><CalendarRange size={15}/><span>Rebase date</span><input aria-label="Rebase date" type="range" min="0" max={dates.length - 1} value={Math.max(0, dates.indexOf(rebaseDate ?? dates[0]))} onChange={(event) => setRebaseDate(dates[Number(event.target.value)])}/><strong>{fmtDate(rebaseDate ?? dates[0])}</strong><small>Click or drag the vertical line on the chart; use arrow keys for one period at a time.</small></div>}
-          {pending.length > 0 && <div className="pending-notice">{pending.map((member) => member.ticker).join(", ")} pending {pending.some((member) => member.pendingReason === "market_cap") ? "price or market-cap" : "price"} history; excluded until ready.</div>}
+          <div className="chart-head"><div><h3>{comparison && secondary ? view === "ratio" ? `${primary?.name} / ${secondary.name}` : `${primary?.name} vs ${secondary.name}` : primary?.name}</h3><p>{comparison && view === "overlay" ? "Both histories rebased to 100 at the vertical marker" : view === "ratio" && comparison ? "Relative performance ratio, rebased to 100" : `Historical ${primary?.weightingMethod === "market_cap" ? "market-cap" : "equal-weight"} index rebased to 100 at the vertical marker`}</p></div><div className="latest-value"><strong>{last?.value.toFixed(2) ?? "—"}</strong><span>{change === null ? "No history" : `${change >= 0 ? "+" : ""}${change.toFixed(1)}% ${usesSelectedRebase ? "since rebase" : "over displayed period"}`}</span></div></div>
+          {rebaseDates.length > 0 && <div className="rebase-control"><CalendarRange size={15}/><span>Rebase date</span><input aria-label="Rebase date" type="range" min="0" max={rebaseDates.length - 1} value={Math.max(0, rebaseDates.indexOf(rebaseDate ?? rebaseDates[0]))} onChange={(event) => setRebaseDate(rebaseDates[Number(event.target.value)])}/><strong>{fmtDate(rebaseDate ?? rebaseDates[0])}</strong><small>Click or drag the vertical line on the chart; use arrow keys for one period at a time.</small></div>}
+          {pending.length > 0 && <div className="pending-notice">{pending.map((member) => member.ticker).join(", ")} pending {pending.some((member) => member.pendingReason === "support") ? "shared-universe refresh" : pending.some((member) => member.pendingReason === "market_cap") ? "price or market-cap history" : "price history"}; excluded until ready.</div>}
           {primary?.weightingMethod === "market_cap" && capMissing.length > 0 && <div className="pending-notice">Market-cap history is waiting for complete inputs for {capMissing.join(", ")}.</div>}
-          <InteractiveChart datasets={chart} rebaseDate={comparison && view === "overlay" ? rebaseDate : undefined} selectableDates={comparison && view === "overlay" ? dates : undefined} onSelectDate={comparison && view === "overlay" ? setRebaseDate : undefined}/>
+          <InteractiveChart datasets={chart} rebaseDate={rebaseDates.length ? rebaseDate : undefined} selectableDates={rebaseDates.length ? rebaseDates : undefined} onSelectDate={rebaseDates.length ? setRebaseDate : undefined}/>
           <div className="legend">{chart.map((dataset) => <span key={dataset.name}><i style={{ background: dataset.color }}/>{dataset.name}</span>)}</div>
         </div>
         <div className="method-panel"><span className="control-label">Methodology</span><p>{primary ? `${primary.weightingMethod === "equal" ? "Equal-weighted" : "Market-cap weighted"} · monthly index-style rebalancing · adjusted-close returns · ${primary.constituents.filter((member) => member.status === "ready").length} active constituents${pending.length ? ` · ${pending.length} pending` : ""}. Both weighting methods are calculated dynamically; this basket displays its preferred method.` : "Create a basket to begin."}</p></div>

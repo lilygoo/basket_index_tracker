@@ -8,7 +8,7 @@ export interface BasketConstituent {
   activeFrom: string;
   activeTo: string | null;
   status: "ready" | "pending";
-  pendingReason: "price" | "market_cap" | null;
+  pendingReason: "support" | "price" | "market_cap" | null;
 }
 
 export interface Basket {
