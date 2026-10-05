@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { calculateIndex, commonDates, ratioSeries, rebaseSeries, sampleSeries } from "../lib/index-engine";
+import { calculateIndex, chartAxis, commonDates, ratioSeries, rebaseSeries, sampleSeries } from "../lib/index-engine";
 import type { Basket, PriceRow } from "../lib/types";
 
 const basket: Basket = {
@@ -30,8 +30,24 @@ describe("index engine", () => {
   });
 
   it("uses market caps for target weights", () => {
-    const result = calculateIndex({ ...basket, weightingMethod: "market_cap" }, rows);
+    const result = calculateIndex(basket, rows, "market_cap");
     assert.ok(Math.abs(result[1].value - 102.5) < 0.00001);
+  });
+
+  it("withholds market-cap points until every priced active member has a cap", () => {
+    const incomplete = rows.map((row) => row.ticker === "BBB" ? { ...row, marketCap: null } : row);
+    assert.deepEqual(calculateIndex(basket, incomplete, "market_cap"), []);
+    assert.ok(calculateIndex(basket, incomplete, "equal").length > 0);
+  });
+
+  it("keeps membership changes forward-only", () => {
+    const changed = { ...basket, constituents: [
+      basket.constituents[0],
+      { ...basket.constituents[1], activeFrom: "2026-01-05", activeTo: "2026-02-02" },
+    ] };
+    const result = calculateIndex(changed, rows, "equal");
+    assert.equal(result[0].date, "2026-01-02");
+    assert.equal(result.at(-1)?.date, "2026-02-02");
   });
 
   it("rebases both series on a selected common date", () => {
@@ -44,5 +60,15 @@ describe("index engine", () => {
 
   it("samples the last observation in each week", () => {
     assert.equal(sampleSeries(calculateIndex(basket, rows), "weekly").length, 3);
+  });
+
+  it("always includes 100 and uses only 1, 5, or 10 point ticks", () => {
+    for (const values of [[98, 104], [82, 119], [31, 171]]) {
+      const axis = chartAxis(values);
+      assert.ok(axis.ticks.includes(100));
+      assert.ok([1, 5, 10].includes(axis.step));
+      assert.ok(axis.lo <= Math.min(...values));
+      assert.ok(axis.hi >= Math.max(...values));
+    }
   });
 });

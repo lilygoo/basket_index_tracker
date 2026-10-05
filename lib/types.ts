@@ -34,9 +34,15 @@ export interface SeriesPoint {
   value: number;
 }
 
+export interface BasketSeries {
+  equal: SeriesPoint[];
+  marketCap: SeriesPoint[];
+  marketCapMissing: string[];
+}
+
 export interface WorkspaceData {
   baskets: Basket[];
-  series: Record<string, SeriesPoint[]>;
+  series: Record<string, BasketSeries>;
   priceAsOf: string | null;
   persistent: boolean;
 }

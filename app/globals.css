@@ -19,19 +19,27 @@ h1 { margin-bottom: 0; font-size: 25px; letter-spacing: -.035em; }
 .workspace { display: grid; grid-template-columns: minmax(290px,320px) minmax(0,1fr); gap: 16px; align-items: start; }
 .library-panel,.control-panel,.chart-panel,.method-panel { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); }
 .library-panel { position: sticky; top: 16px; padding: 13px; }
-.library-actions { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; }
-.library-actions label { display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 8px; padding: 0 9px; color: var(--quiet); }
-.library-actions input { width: 100%; height: 36px; border: 0; outline: 0; background: transparent; color: var(--ink); }
-.library-actions button,.top-controls button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--line-strong); border-radius: 8px; padding: 0 11px; background: var(--surface); color: var(--ink); font-size: 11px; font-weight: 700; }
+.library-actions,.ticker-filter { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; }
+.library-actions label,.ticker-filter label { display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 8px; padding: 0 9px; color: var(--quiet); }
+.library-actions input,.ticker-filter input { width: 100%; height: 36px; border: 0; outline: 0; background: transparent; color: var(--ink); }
+.library-actions button,.ticker-filter > button,.top-controls button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--line-strong); border-radius: 8px; padding: 0 11px; background: var(--surface); color: var(--ink); font-size: 11px; font-weight: 700; }
 .library-actions button { background: var(--navy); color: #fff; }
+.ticker-filter { margin-top: 8px; }
+.ticker-filter > button { padding-inline: 9px; }
+.filter-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.filter-chips span { display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; padding: 4px 6px 4px 8px; background: var(--navy); color: #fff; font-size: 9px; font-weight: 750; }
+.filter-chips button { display: grid; place-items: center; border: 0; padding: 0; background: transparent; color: inherit; }
 .library-label { display: flex; justify-content: space-between; margin: 15px 2px 8px; color: var(--quiet); font-size: 9px; font-weight: 800; letter-spacing: .1em; }
 .basket-list { max-height: calc(100vh - 220px); overflow: auto; padding-right: 3px; }
 .basket-card { margin-bottom: 9px; border: 1px solid var(--line); border-radius: 10px; padding: 11px; background: #fff; transition: 120ms ease; }
 .basket-card:hover { border-color: #b9c4d1; }
 .basket-card.selected { border-color: var(--blue); background: #f4f8fe; box-shadow: 0 0 0 2px rgba(53,104,168,.08); }
-.basket-card-head { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 7px; }
+.basket-card-head { display: grid; grid-template-columns: minmax(0,1fr) auto auto; align-items: center; gap: 7px; }
+.basket-card-head h3 { margin: 0; overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .basket-card-head input { width: 100%; border: 0; outline: 0; background: transparent; font-weight: 750; }
 .basket-card-head select,.top-controls select,.compare-controls select { border: 1px solid var(--line); border-radius: 7px; padding: 6px 8px; background: #fff; color: #455163; font-size: 10px; }
+.weight-label { color: var(--muted); font-size: 9px; white-space: nowrap; }
+.edit-card { display: inline-flex; align-items: center; gap: 4px; border: 0; padding: 4px; background: transparent; color: var(--blue); font-size: 9px; font-weight: 750; }
 .ticker-list { display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0; }
 .ticker-chip { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--line); border-radius: 999px; padding: 4px 5px 4px 8px; background: #fff; font-size: 10px; font-weight: 700; }
 .ticker-chip.pending { border-color: #efd7ad; background: #fff8e9; color: var(--amber); }
@@ -41,8 +49,11 @@ h1 { margin-bottom: 0; font-size: 25px; letter-spacing: -.035em; }
 .add-ticker input { min-width: 0; height: 31px; border: 1px solid var(--line); border-radius: 7px; padding: 0 8px; background: #fff; text-transform: uppercase; }
 .add-ticker button { border: 1px solid var(--line); border-radius: 7px; padding: 0 9px; background: var(--surface-soft); font-size: 10px; font-weight: 700; }
 .basket-meta,.card-message,.library-help { margin: 8px 0 0; color: var(--quiet); font-size: 9px; line-height: 1.4; }
+.basket-footer { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; }
+.delete-card { display: inline-flex; align-items: center; gap: 4px; border: 0; padding: 4px 0 0; background: transparent; color: #b43a46; font-size: 9px; font-weight: 750; }
 .card-message { color: var(--amber); }
 .library-help { margin: 12px 2px 0; }
+.library-empty { padding: 24px 8px; text-align: center; color: var(--quiet); font-size: 10px; }
 .chart-column { display: grid; gap: 13px; min-width: 0; }
 .control-panel { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 16px; }
 .control-label,.compare-controls label span { display: block; margin-bottom: 5px; color: var(--quiet); font-size: 9px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
@@ -70,7 +81,9 @@ h1 { margin-bottom: 0; font-size: 25px; letter-spacing: -.035em; }
 .chart.selectable { cursor: crosshair; }
 .chart.selectable:focus-visible { border-radius: 8px; box-shadow: 0 0 0 3px rgba(53,104,168,.18); }
 .chart-grid { stroke: var(--line); stroke-width: 1; }
+.chart-grid.chart-base { stroke: #9aa8b8; stroke-width: 1.6; }
 .chart-label { fill: var(--quiet); font-size: 10px; }
+.chart-base-label { fill: var(--ink); font-weight: 750; }
 .rebase-line { stroke: var(--navy); stroke-width: 1.5; stroke-dasharray: 5 4; }
 .rebase-dot { fill: #fff; stroke: var(--navy); stroke-width: 2.5; }
 .rebase-label { fill: var(--navy); font-size: 10px; font-weight: 750; }
@@ -80,6 +93,21 @@ h1 { margin-bottom: 0; font-size: 25px; letter-spacing: -.035em; }
 .legend i { width: 17px; height: 3px; border-radius: 2px; }
 .method-panel { padding: 15px 16px; }
 .method-panel p { margin: 0; color: #455163; font-size: 11px; line-height: 1.55; }
+.modal-backdrop { position: fixed; z-index: 50; inset: 0; display: grid; place-items: center; padding: 18px; background: rgba(15,23,34,.48); }
+.modal-panel { width: min(480px,100%); display: grid; gap: 15px; border: 1px solid var(--line); border-radius: 14px; padding: 20px; background: var(--surface); box-shadow: 0 24px 70px rgba(15,23,34,.25); }
+.modal-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; }
+.modal-head h2 { margin: 0; font-size: 19px; }
+.modal-head > button { display: grid; place-items: center; border: 0; padding: 4px; background: transparent; color: var(--muted); }
+.modal-panel > label span { display: block; margin-bottom: 6px; color: var(--muted); font-size: 10px; font-weight: 700; }
+.modal-panel > label input,.modal-panel > label select { width: 100%; height: 39px; border: 1px solid var(--line); border-radius: 8px; padding: 0 10px; background: #fff; color: var(--ink); }
+.modal-panel > label small { display: block; margin-top: 5px; color: var(--quiet); font-size: 9px; line-height: 1.4; }
+.modal-error { color: #b43a46; font-size: 10px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px; }
+.modal-actions button { min-height: 36px; border: 1px solid var(--line); border-radius: 8px; padding: 0 13px; background: var(--surface); color: var(--ink); font-size: 10px; font-weight: 750; }
+.modal-actions button.primary { border-color: var(--navy); background: var(--navy); color: #fff; }
+.modal-actions button.danger { border-color: #b43a46; background: #b43a46; color: #fff; }
+.modal-actions button:disabled { opacity: .55; cursor: wait; }
+.confirm-panel p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
 @media (max-width: 860px) {
   .workspace { grid-template-columns: 1fr; }
   .library-panel { position: static; }

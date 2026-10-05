@@ -1,4 +1,4 @@
-import type { Basket, PriceRow, SeriesPoint, WorkspaceData } from "@/lib/types";
+import type { Basket, PriceRow, WorkspaceData } from "@/lib/types";
 import { calculateIndex } from "@/lib/index-engine";
 
 const definitions = [
@@ -37,8 +37,13 @@ export function demoPriceRows(basket: Basket): PriceRow[] {
   return rows;
 }
 
-export function demoSeriesForBasket(basket: Basket): SeriesPoint[] {
-  return calculateIndex(basket, demoPriceRows(basket));
+export function demoSeriesForBasket(basket: Basket) {
+  const prices = demoPriceRows(basket);
+  return {
+    equal: calculateIndex(basket, prices, "equal"),
+    marketCap: calculateIndex(basket, prices, "market_cap"),
+    marketCapMissing: [],
+  };
 }
 
 export function demoWorkspace(): WorkspaceData {

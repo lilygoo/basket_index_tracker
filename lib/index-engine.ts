@@ -1,4 +1,4 @@
-import type { Basket, Frequency, PriceRow, SeriesPoint } from "@/lib/types";
+import type { Basket, Frequency, PriceRow, SeriesPoint, WeightingMethod } from "@/lib/types";
 
 const round = (value: number) => Math.round(value * 1e8) / 1e8;
 
@@ -6,7 +6,7 @@ function activeOn(basket: Basket, date: string) {
   return basket.constituents.filter((member) => member.activeFrom <= date && (!member.activeTo || date < member.activeTo));
 }
 
-export function calculateIndex(basket: Basket, rows: PriceRow[]): SeriesPoint[] {
+export function calculateIndex(basket: Basket, rows: PriceRow[], weightingMethod: WeightingMethod = basket.weightingMethod): SeriesPoint[] {
   const relevant = rows.filter((row) => basket.constituents.some((member) => member.ticker === row.ticker) && row.date >= basket.inceptionDate);
   const dates = [...new Set(relevant.map((row) => row.date))].sort();
   const rowsByDate = new Map<string, PriceRow[]>();
@@ -22,10 +22,12 @@ export function calculateIndex(basket: Basket, rows: PriceRow[]): SeriesPoint[] 
   for (const date of dates) {
     for (const row of rowsByDate.get(date) ?? []) latest.set(row.ticker, row);
     const active = activeOn(basket, date);
-    const eligible = active.filter((member) => {
+    const priced = active.filter((member) => {
       const price = latest.get(member.ticker);
-      return Boolean(price && price.adjustedClose > 0 && (basket.weightingMethod === "equal" || (price.marketCap ?? 0) > 0));
+      return Boolean(price && price.adjustedClose > 0);
     });
+    if (weightingMethod === "market_cap" && priced.some((member) => (latest.get(member.ticker)?.marketCap ?? 0) <= 0)) continue;
+    const eligible = priced;
     if (!eligible.length) continue;
 
     let level = 100;
@@ -41,12 +43,12 @@ export function calculateIndex(basket: Basket, rows: PriceRow[]): SeriesPoint[] 
     const eligibility = eligible.map((member) => member.ticker).sort().join("|");
     const shouldRebalance = !started || month !== previousMonth || eligibility !== previousEligibility;
     if (shouldRebalance) {
-      const denominator = basket.weightingMethod === "equal"
+      const denominator = weightingMethod === "equal"
         ? eligible.length
         : eligible.reduce((sum, member) => sum + (latest.get(member.ticker)?.marketCap ?? 0), 0);
       units = new Map(eligible.map((member) => {
         const price = latest.get(member.ticker)!;
-        const weight = basket.weightingMethod === "equal" ? 1 / denominator : (price.marketCap ?? 0) / denominator;
+        const weight = weightingMethod === "equal" ? 1 / denominator : (price.marketCap ?? 0) / denominator;
         return [member.ticker, (level * weight) / price.adjustedClose];
       }));
     }
@@ -57,6 +59,20 @@ export function calculateIndex(basket: Basket, rows: PriceRow[]): SeriesPoint[] 
     output.push({ date, value: round(level) });
   }
   return output;
+}
+
+export function chartAxis(values: number[]) {
+  if (!values.length) return { lo: 99, hi: 101, step: 1, ticks: [99, 100, 101] };
+  const min = Math.min(100, ...values);
+  const max = Math.max(100, ...values);
+  const span = max - min;
+  const step = span <= 10 ? 1 : span <= 50 ? 5 : 10;
+  let lo = Math.floor(min / step) * step;
+  let hi = Math.ceil(max / step) * step;
+  if (lo === hi) { lo -= step; hi += step; }
+  const ticks: number[] = [];
+  for (let value = lo; value <= hi + step / 2; value += step) ticks.push(value);
+  return { lo, hi, step, ticks };
 }
 
 export function sampleSeries(series: SeriesPoint[], frequency: Frequency): SeriesPoint[] {

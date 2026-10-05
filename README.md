@@ -4,9 +4,10 @@ Private two-pane workspace for building theme baskets and tracking equal-weighte
 
 ## What it does
 
-- Search, create, rename, and edit basket cards.
+- Search basket names, apply multiple exact-ticker filters, and edit compact basket cards.
+- Create baskets through a validated dialog, keep one active ticker minimum, and soft-delete baskets with immutable audit history.
 - Keep unsupported constituents visible as `Pending` and submit them through the existing ticker-support queue.
-- Calculate one year of adjusted-close index history with monthly index-style rebalancing.
+- Calculate both equal-weight and market-cap one-year histories dynamically with monthly index-style rebalancing; display each basket's preferred method.
 - Show daily or weekly history, compare two indices, or chart their rebased ratio.
 - In the two-index overlay, click or drag the vertical marker—or use its slider/arrow keys—to choose the common date where both histories are rebased to 100.
 - Enrich `daily_prices` with historical shares outstanding from yfinance and derive daily market capitalization.
@@ -24,7 +25,9 @@ Then open `http://localhost:3000`. Run `npm test`, `npm run typecheck`, and `npm
 
 ## Shared Supabase setup
 
-1. Review and apply `supabase/migrations/202610030001_basket_index_tracker.sql` in the existing Supabase project. The migration is idempotent, adds only `shares_outstanding` and `market_cap` to `daily_prices`, creates the basket tables/RPCs, and seeds the four prototype baskets.
+1. Review and apply the migrations in order in the existing Supabase project:
+   - `202610030001_basket_index_tracker.sql` creates the initial basket model and daily market-cap columns.
+   - `202610040002_basket_audit_and_market_data.sql` adds controlled creation/deletion, unique names, immutable events, current universe snapshots, and frozen daily market-cap updates. It also removes the three confirmed empty accidental `New Basket` rows.
 2. Copy the server-only Supabase values into an ignored `.env.local`; never expose the secret with a `NEXT_PUBLIC_` prefix.
 3. Configure two independent layers of access control:
    - Enable Vercel Authentication for every URL that serves the app. On Vercel Hobby, Standard Protection does not protect a production custom domain, so use a protected deployment URL or a plan/scope that protects production.
@@ -49,7 +52,7 @@ uv run pytest -q
 uv run basket-index-tracker refresh-market-caps
 ```
 
-The job requests sparse historical share counts from `yfinance`, performs a backward-looking as-of join onto each daily raw close, and updates the two market-cap columns through a restricted bulk RPC. It never backward-fills a share count from a future report. `.github/workflows/market-cap-refresh.yml` schedules the same job at 9:20 p.m. America/New_York on weekdays and supports manual dispatch.
+The first job run backfills missing history from sparse `yfinance` share counts. Leading dates without a prior observation use the earliest/current available count as an explicit bootstrap proxy. Populated historical rows are then frozen: later runs fill only new or missing rows, refresh the current snapshot in `security_universe`, and carry the last stored shares when the provider is temporarily unavailable. Market cap always uses raw close. `.github/workflows/market-cap-refresh.yml` schedules the job at 9:20 p.m. America/New_York on weekdays and supports manual dispatch.
 
 Configure `SUPABASE_URL` and `SUPABASE_SECRET_KEY` as GitHub Actions secrets before enabling the workflow.
 
@@ -58,6 +61,6 @@ Configure `SUPABASE_URL` and `SUPABASE_SECRET_KEY` as GitHub Actions secrets bef
 - The initial basket roster is backtested from the earliest retained shared price date; later membership edits are effective from their New York calendar date and do not rewrite earlier membership.
 - Adjusted closes drive constituent returns. Raw close multiplied by the latest historically known shares outstanding supplies rebalance-date market capitalization.
 - Rebalances occur on the first available trading observation of each month and whenever membership or data eligibility changes. Index level continuity is preserved.
-- Missing price or required market-cap history keeps a constituent Pending and excluded until usable data arrives.
+- Equal-weight history can use every priced constituent. Market-cap history is published only when every active priced constituent has valid market-cap input; missing inputs are identified in the UI.
 - Weekly values are the last available daily index level in each ISO week.
 - Comparison overlays use common dates. The selected vertical marker is the 100 base for both series; the ratio view is `(Index A / Index B)` rebased to 100.
